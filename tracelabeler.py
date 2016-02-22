@@ -256,18 +256,16 @@ simply tabulate statistics from which the model parameters are set viz
         traceback.reverse()
         tracebackscore.reverse()
 
-        print "traceback"
-        for (k,v) in enumerate(zip(traceback,tracebackscore)):
-          print k, v
+        # print "traceback"
+        # for (k,v) in enumerate(zip(traceback,tracebackscore)):
+        #   print k, v
 
         ## reduce the traceback to startframe and pw
         newbasecalls = []
-
         sf = startframe
         currentpos = 0
         currentbase = hmmstates[currentpos]
         ii = 0
-        print "(endframe-startframe):", (endframe-startframe)
         while ii<(endframe-startframe):
             if traceback[ii] != currentpos:
                 if hmmstates[traceback[ii]] == "-": # if current is "-" then previous is base so store
@@ -280,8 +278,8 @@ simply tabulate statistics from which the model parameters are set viz
 
         # base, sf, pw
         # ('G', 49154, 15)
-        print "newbasecalls"
-        for kk in newbasecalls:
-            print kk
+        # print "newbasecalls"
+        # for kk in newbasecalls:
+        #     print kk
 
         return( traceback,tracebackscore, newbasecalls )

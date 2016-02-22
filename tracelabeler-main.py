@@ -248,7 +248,6 @@ for ii in range(len(newbasecalls)-1):
     thisbase = newbasecalls[ii][0]
     trstart = newbasecalls[ii][1]
     trend = newbasecalls[ii+1][1]-1
-    print "calling tr", thisbase, trstart, trend,
 
     #### mm
     (tr, trsc, bc) = tl.computehmm( ["A","-"], hmmst, gm, trstart, trend )

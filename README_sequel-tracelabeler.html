@@ -122,22 +122,14 @@ module add smrtanalysis/3.0.3
 
 
 import tracelabeler
-
 tl = tracelabeler.tracelabeler( trace="/pbi/dept/primary/traceSim/Sequel/RTvsOfflinePipeline/LVP1+releaseChemistryTestSet/TestSet_004_rs200.trc.h5", \
 dme="/home/UNIXHOME/mbrown/mbrown/workspace2016Q1/sequel-tracelabeler/Results_RTPv3p0p16/TestSet_004_rs200.dme-dump.h5", \
 unbam="/home/UNIXHOME/mbrown/mbrown/workspace2016Q1/sequel-tracelabeler/LVP1+releaseChemistryTestSet/Results_RTPv3p0p16/TestSet_004_rs200.subreads.bam", \
 albam="/home/UNIXHOME/mbrown/mbrown/workspace2016Q1/sequel-tracelabeler/current-TestSet_004_rs200_32x.pbalign.bam", \
 ref="/home/UNIXHOME/mbrown/mbrown/workspace2016Q1/dmesim/TestSet_004_rs200_32x.fasta")
+...
 
-# the first zmw is 2097184 in this sim data
-tl.setzmw(2097184)
-
-#trace got data
-#dme got data
-#unbam got mRefarmedData/2097184/0_3455
-#albam got hit rlen=3329 err=0.117152 tid=refrc qid=mRefarmedData/2097184/122_3451
-
-ac = tl.alignCorresp()
+python tracelabeler-main.py
 
 <img src="tracelabler.png">
 
