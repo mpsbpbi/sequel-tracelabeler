@@ -64,8 +64,11 @@ simply tabulate statistics from which the model parameters are set viz
         unbamff = pysam.AlignmentFile(self.unbamf,"rb", check_sq=False)
         for dd in unbamff:
             # with subread bam there might be multiple subreads with zmw take one containing targetbase
-            if ("/%d/" % self.zmw) in dd.query_name and AContainedInB(targetbase,targetbase, dd.qstart, dd.qend):
-                if not self.unbam:
+            if ("/%d/" % self.zmw) in dd.query_name:
+                # TODO: do I really have to parse the subread location from the query_name???
+                (substart, subend) = [int(xx) for xx in dd.query_name.split("/")[-1].split("_")]
+                print "unbam found zmw:", dd.query_name,dd.qstart, dd.qend, dd.query_alignment_start, dd.query_alignment_end, substart,subend
+                if AContainedInB(targetbase,targetbase, substart,subend):
                     self.unbam = dd
                     print "unbam got %s" % dd.query_name
                     break
@@ -77,7 +80,9 @@ simply tabulate statistics from which the model parameters are set viz
         reader = pbcore.io.openIndexedAlignmentFile( self.albamf, self.reff )
         for h in reader:
             zmw=h.HoleNumber
-            if zmw == self.zmw and AContainedInB(h.queryStart, h.queryEnd, self.unbam.qstart, self.unbam.qend):
+            # TODO: do I really have to parse the subread location from the query_name???
+            (substart, subend) = [int(xx) for xx in self.unbam.query_name.split("/")[-1].split("_")]
+            if zmw == self.zmw and AContainedInB(h.queryStart, h.queryEnd, substart, subend):
                 self.albam.append(h)
                 numerr=(h.nMM + h.nIns + h.nDel)
                 rlen = (h.readEnd-h.readStart)
