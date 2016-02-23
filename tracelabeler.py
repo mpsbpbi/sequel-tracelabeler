@@ -6,6 +6,11 @@ import pysam
 import pbcore.io
 import math
 
+################################
+def AContainedInB(asta, aend, bsta, bend):
+    return( (asta >= bsta) and (asta<=bend) and (aend >= bsta) and (aend<=bend) )
+
+################################
 class tracelabeler:
     """goal: label every frame of a trace correctly
 
@@ -25,7 +30,7 @@ simply tabulate statistics from which the model parameters are set viz
 """
 
     rMap = dict(zip("ACGTacgt-","TGCAtgca-"))
-        
+
     ################################
     def __init__( self, trace="tracefile", dme="dmefile", unbam="unalignedbamfile", albam="alignedbamfile", ref="reffile"):
         self.tracef=trace
@@ -35,10 +40,11 @@ simply tabulate statistics from which the model parameters are set viz
         self.reff=ref
 
     ################################
-    def setzmw( self, zmw ):
-        "Set the zmw to examine and pull all the data"
+    def setzmw( self, zmw, targetbase=0 ):
+        "Set the zmw subread that contains targetbase (bam subreads) and pull all the data"
 
         self.zmw = zmw
+        self.targetbase = targetbase
 
         #### trace data
         self.traceff=h5py.File(self.tracef,"r")
@@ -54,14 +60,16 @@ simply tabulate statistics from which the model parameters are set viz
         print "dme got data"
 
         #### unbam
+        self.unbam = None
         unbamff = pysam.AlignmentFile(self.unbamf,"rb", check_sq=False)
-        dd = unbamff.next()
-        while (dd):
-            if ("/%d/" % self.zmw) in dd.query_name:
-                self.unbam = dd
-                print "unbam got %s" % dd.query_name
-                break
-            dd = unbamff.next()
+        for dd in unbamff:
+            # with subread bam there might be multiple subreads with zmw take one containing targetbase
+            if ("/%d/" % self.zmw) in dd.query_name and AContainedInB(targetbase,targetbase, dd.qstart, dd.qend):
+                if not self.unbam:
+                    self.unbam = dd
+                    print "unbam got %s" % dd.query_name
+                    break
+        if not self.unbam: print "ERROR: unbam not found!!!"
 
         #### albam
         self.albam = []
@@ -69,7 +77,7 @@ simply tabulate statistics from which the model parameters are set viz
         reader = pbcore.io.openIndexedAlignmentFile( self.albamf, self.reff )
         for h in reader:
             zmw=h.HoleNumber
-            if zmw == self.zmw:
+            if zmw == self.zmw and AContainedInB(h.queryStart, h.queryEnd, self.unbam.qstart, self.unbam.qend):
                 self.albam.append(h)
                 numerr=(h.nMM + h.nIns + h.nDel)
                 rlen = (h.readEnd-h.readStart)
@@ -100,7 +108,7 @@ simply tabulate statistics from which the model parameters are set viz
     def alignCorresp( self ):
         "compute aligned correspondance between read and ref bases"
 
-        # TODO: right now just assumes single alignment not multiple subread alignments
+        # because we specify zmw and targetbase, this should be a single alignment even with multiple subreads in the subreads bam
         h = self.albam[0]
 
         strand = +1 if h.isForwardStrand else -1
@@ -126,8 +134,8 @@ simply tabulate statistics from which the model parameters are set viz
         index = np.array(range(len(qOffset)))
 
         # map-ping: todo probably not too efficient
-        self.alignReadStart = qs
-        self.alignReadEnd = qe
+        self.alignReadStart = qs - h.queryStart # subtract off start of subread
+        self.alignReadEnd = qe - h.queryStart # subtract off start of subread
         self.alignRefStart = ts
         self.alignRefEnd = te
         self.alignStrand = strand
@@ -198,6 +206,10 @@ simply tabulate statistics from which the model parameters are set viz
     ################################
     def windowToDMEDat( self, window):
         # We_order_them_as:_[-,_A,_C,_G,_T]
+
+        # TODO: hack! 0th window is always 0????
+        if window==0: window =1
+
         MixtureFraction = self.dmeff["/SmoothedEstimates/MixtureFraction"][window][self.dmeidx]
         Mean = self.dmeff["/SmoothedEstimates/Mean"][window][self.dmeidx]
         Covariance = self.dmeff["/SmoothedEstimates/Covariance"][window][self.dmeidx]
