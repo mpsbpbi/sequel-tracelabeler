@@ -21,7 +21,6 @@ outprefix = sys.argv[9]
 # 31981753, 100
 tl.setzmw(int(sys.argv[6]), int(sys.argv[7]))
 tl.alignCorresp()
-tl.baseToTrace()
 
 # trace got data
 # dme got data

@@ -13,7 +13,6 @@ ref="/home/UNIXHOME/mbrown/mbrown/workspace2016Q1/dmesim/TestSet_004_rs200_32x.f
 # the first zmw is 2097184 in this sim data
 tl.setzmw(2097184)
 tl.alignCorresp()
-tl.baseToTrace()
 
 # what is min/max aligned read base?
 print "min/maxAlignedReadBase", tl.alignReadStart, tl.alignReadEnd

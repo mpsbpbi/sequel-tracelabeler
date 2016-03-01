@@ -52,7 +52,7 @@ class gaussmix:
             cov12 = self.cov[cc][2]
             rho = cov12/(sx*sy)
             z = ((x-mx)**2)/(sx**2) - (2*rho*(x-mx)*(y-my))/(sx*sy) + ((y-my)**2)/(sy**2)
-            lp.append( -math.log(2*3.14159*sx*sy*math.sqrt(1-rho**2)) + ((-0.5*z)/(1-rho**2)) + math.log(self.mixfrac[cc]) )
+            lp.append( -math.log(2*3.14159*sx*sy*math.sqrt(1-rho**2)) + ((-0.5*z)/(1-rho**2)) )
         return(lp)
 
     ################################
