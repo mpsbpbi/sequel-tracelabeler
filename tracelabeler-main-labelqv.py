@@ -28,7 +28,8 @@ if not options.trace:
 tl = tracelabeler.tracelabeler( trace=options.trace, dme=options.dme, unbam=options.unbam, albam=None, ref=None)
 
 # set the zmw and targetbase to get data from subread
-tl.setzmw(int(options.zmw), int(options.targetBase))
+found = tl.setzmw(int(options.zmw), int(options.targetBase))
+if not found: sys.exit(1)
 
 myqueryid = tl.unbam.query_name
 
@@ -63,7 +64,6 @@ hmmst["G-"] = (1.0-hmmst["--"])/4
 hmmst["T-"] = (1.0-hmmst["--"])/4
 print "hmmst", hmmst
 
-baseIdx = {"-":0,"A":1,"C":2,"G":3,"T":4}
 allqvsHeader = ["A","C","G","T", "IA", "IC","IG","IT","D"]
 allqvsHeaderToIdx = dict([(kk,vv) for (vv,kk) in enumerate(allqvsHeader)])
 allqvs = []

@@ -117,8 +117,10 @@ for rr in ref:
     hmmstates.append(rr)
     hmmstates.append("-")
 
-# the dme cluter probs for the frame pulse data
+# the dme cluster probs for the frame pulse data
 gmp = tl.dmeprobs(startframe, endframe)
+
+# compute simple hmm with local alignment to the reference subset
 (traceback, tracebackscore, newbasecalls) = tl.computehmm( hmmstates, hmmst, gmp, False, startframe) # local alignment
 
 print "new basecalls"

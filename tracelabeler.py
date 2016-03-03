@@ -54,9 +54,11 @@ simply tabulate statistics from which the model parameters are set viz
         #### trace data
         self.traceff=h5py.File(self.tracef,"r")
         self.tridx = bisect.bisect(self.traceff['TraceData']['HoleNumber'],self.zmw)-1
-        assert(self.zmw==self.traceff['TraceData']['HoleNumber'][self.tridx])
+        if (self.zmw!=self.traceff['TraceData']['HoleNumber'][self.tridx]):
+            print "ERROR: zmw not found. assert tracedata zmw=", self.zmw, "at index", self.tridx, "not equal", self.traceff['TraceData']['HoleNumber'][self.tridx]
+            return(False)
         self.trace = self.traceff['TraceData']['Traces'][self.tridx]
-        print "trace got data"
+        print "trace got data", zmw, targetbase, self.traceff['TraceData']['HoleNumber'][self.tridx]
 
         #### dme
         self.dmeff=h5py.File(self.dmef,"r")
@@ -137,6 +139,8 @@ simply tabulate statistics from which the model parameters are set viz
                 myref.append(dat[ii])
             self.ref = "".join(myref)
         
+        return(True)
+
     ################################
     def alignCorresp( self ):
         "compute aligned correspondance between read and ref bases"
@@ -310,7 +314,7 @@ simply tabulate statistics from which the model parameters are set viz
             return( res )
                 
     ################################
-    def computehmmRAW( self, hmmstates, hmmStateTrans, dme, startframe, endframe ):
+    def OLDcomputehmmRAW( self, hmmstates, hmmStateTrans, dme, startframe, endframe ):
 
         baseIdx = {"-":0,"A":1,"C":2,"G":3,"T":4}
 
