@@ -72,7 +72,7 @@ for bb in range(len(tl.rseq)-1):
     # TODO: doesn't score last base (-1) as I don't know where the "end" is
     thisbase = tl.rseq[bb]
     trstart = tl.rsf[bb]
-    trend = tl.rsf[bb+1]-1
+    trend = tl.rsf[bb+1]
 
     # the dme cluter probs for the frame pulse data
     gmp = tl.dmeprobs(trstart, trend)
