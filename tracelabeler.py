@@ -37,7 +37,7 @@ simply tabulate statistics from which the model parameters are set viz
         return("".join([tracelabeler.rMap[c] for c in instr[::-1]]))
 
     ################################
-    def __init__( self, trace="tracefile", dme="dmefile", unbam="unalignedbamfile", albam="alignedbamfile", ref="reffile"):
+    def __init__( self, trace="tracefile", dme=None, unbam=None, albam=None, ref=None):
         self.tracef=trace
         self.dmef=dme
         self.unbamf=unbam
@@ -61,46 +61,55 @@ simply tabulate statistics from which the model parameters are set viz
         print "trace got data", zmw, targetbase, self.traceff['TraceData']['HoleNumber'][self.tridx]
 
         #### dme
-        self.dmeff=h5py.File(self.dmef,"r")
-        self.dmeidx = bisect.bisect(self.dmeff['HoleNumber'],self.zmw)-1
-        assert(self.zmw==self.dmeff['HoleNumber'][self.dmeidx])
-        # some dme blocks have BlockSize==0 and aren't used. (TODO: ???)
-        self.dmeStartFrame = []
-        self.dmeEndFrame = []
-        self.dmeBlockSize = []
-        self.dmeIndex = []
-        for ii in range(len(self.dmeff['BlockSize'])):
-            if self.dmeff['BlockSize'][ii]>0:
-                self.dmeBlockSize.append(self.dmeff['BlockSize'][ii])
-                self.dmeStartFrame.append(self.dmeff['StartFrame'][ii])
-                self.dmeEndFrame.append(self.dmeff['EndFrame'][ii])
-                # make sure dme blocks are ordered increasing
-                if len(self.dmeStartFrame)>1:
-                    assert( self.dmeStartFrame[-1] == (self.dmeEndFrame[-2]))
-                self.dmeIndex.append(ii)
-        # dmeWindow is contiguous 0:len and Index is into the DME data that has holes
-        self.dmeWindowToIndex = dict(enumerate(self.dmeIndex))
-        print "assert dme lengths:", self.dmeEndFrame[-1], len(self.trace[0])
-        assert(self.dmeEndFrame[-1] == len(self.trace[0]))
-        print "dme got data"
+        self.dmeStartFrame=None
+        self.dmeEndFrame=None
+        self.dmeBlockSize=None
+        self.dmeIndex=None
+        if self.dmef is not None:
+            self.dmeff=h5py.File(self.dmef,"r")
+            self.dmeidx = bisect.bisect(self.dmeff['HoleNumber'],self.zmw)-1
+            assert(self.zmw==self.dmeff['HoleNumber'][self.dmeidx])
+            # some dme blocks have BlockSize==0 and aren't used. (TODO: ???)
+            self.dmeStartFrame = []
+            self.dmeEndFrame = []
+            self.dmeBlockSize = []
+            self.dmeIndex = []
+            for ii in range(len(self.dmeff['BlockSize'])):
+                if self.dmeff['BlockSize'][ii]>0:
+                    self.dmeBlockSize.append(self.dmeff['BlockSize'][ii])
+                    self.dmeStartFrame.append(self.dmeff['StartFrame'][ii])
+                    self.dmeEndFrame.append(self.dmeff['EndFrame'][ii])
+                    # make sure dme blocks are ordered increasing
+                    if len(self.dmeStartFrame)>1:
+                        assert( self.dmeStartFrame[-1] == (self.dmeEndFrame[-2]))
+                    self.dmeIndex.append(ii)
+            # dmeWindow is contiguous 0:len and Index is into the DME data that has holes
+            self.dmeWindowToIndex = dict(enumerate(self.dmeIndex))
+            print "assert dme lengths:", self.dmeEndFrame[-1], len(self.trace[0])
+            assert(self.dmeEndFrame[-1] == len(self.trace[0]))
+            print "dme got data"
 
         #### unbam
         self.unbam = None
-        unbamff = pysam.AlignmentFile(self.unbamf,"rb", check_sq=False)
-        for dd in unbamff:
-            # with subread bam there might be multiple subreads with zmw take one containing targetbase
-            if ("/%d/" % self.zmw) in dd.query_name:
-                # TODO: do I really have to parse the subread location from the query_name???
-                (substart, subend) = [int(xx) for xx in dd.query_name.split("/")[-1].split("_")]
-                print "unbam found zmw:", dd.query_name,dd.qstart, dd.qend, dd.query_alignment_start, dd.query_alignment_end, substart,subend
-                if AContainedInB(targetbase,targetbase, substart,subend):
-                    self.unbam = dd
-                    print "unbam got %s" % dd.query_name
-                    self.rsf = self.unbam.get_tag("sf") # start frame
-                    self.rpw = self.unbam.get_tag("pw") # pulse width
-                    self.rseq = self.unbam.seq
-                    break
-        if not self.unbam: print "ERROR: unbam not found!!!"
+        self.rsf = None
+        self.rpw = None
+        self.rseq = None
+        if self.unbamf is not None:
+            unbamff = pysam.AlignmentFile(self.unbamf,"rb", check_sq=False)
+            for dd in unbamff:
+                # with subread bam there might be multiple subreads with zmw take one containing targetbase
+                if ("/%d/" % self.zmw) in dd.query_name:
+                    # TODO: do I really have to parse the subread location from the query_name???
+                    (substart, subend) = [int(xx) for xx in dd.query_name.split("/")[-1].split("_")]
+                    print "unbam found zmw:", dd.query_name,dd.qstart, dd.qend, dd.query_alignment_start, dd.query_alignment_end, substart,subend
+                    if AContainedInB(targetbase,targetbase, substart,subend):
+                        self.unbam = dd
+                        print "unbam got %s" % dd.query_name
+                        self.rsf = self.unbam.get_tag("sf") # start frame
+                        self.rpw = self.unbam.get_tag("pw") # pulse width
+                        self.rseq = self.unbam.seq
+                        break
+            if not self.unbam: print "ERROR: unbam not found!!!"
 
         #### albam
         self.albam = []
