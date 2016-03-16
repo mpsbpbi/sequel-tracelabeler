@@ -6,6 +6,7 @@ import pysam
 import pbcore.io
 import math
 import gaussmix
+import os.path
 
 ################################
 def AContainedInB(asta, aend, bsta, bend):
@@ -43,6 +44,36 @@ simply tabulate statistics from which the model parameters are set viz
         self.unbamf=unbam
         self.albamf=albam
         self.reff=ref
+
+        # do timestamp to make sure trace < dme < unbam < albam
+        timesOK=True
+        t0 = os.path.getmtime( self.tracef)
+        if self.dmef is not None:
+            t1 = os.path.getmtime( self.dmef)
+            if not t1>t0:
+                timesOK=False
+                print >>sys.stderr, "ERROR: dme file is before trace!", t1, t0, self.dmef, self.tracef
+        if self.unbamf is not None:
+            t2 = os.path.getmtime( self.unbamf)
+            if not t2>t0:
+                timesOK=False
+                print >>sys.stderr, "ERROR: unbamf file is before trace!", t2, t0, self.unbamf, self.tracef
+            if not t2>t1:
+                timesOK=False
+                print >>sys.stderr, "ERROR: unbamf file is before dme!", t2, t1, self.unbamf, self.dmef
+        if self.albamf is not None:
+            t3 = os.path.getmtime( self.albamf)
+            if not t3>t0:
+                timesOK=False
+                print >>sys.stderr, "ERROR: albamf file is before trace!", t2, t0, self.albamf, self.tracef
+            if not t3>t1:
+                timesOK=False
+                print >>sys.stderr, "ERROR: albamf file is before dme!", t2, t1, self.albamf, self.dmef
+            if not t3>t2:
+                timesOK=False
+                print >>sys.stderr, "ERROR: albamf file is before unbam!", t2, t1, self.albamf, self.unbamf
+        if timesOK:
+            print >>sys.stderr, "tracelabeler. file timestamps in correct order"
 
     ################################
     def setzmw( self, zmw, targetbase=0 ):
@@ -108,8 +139,12 @@ simply tabulate statistics from which the model parameters are set viz
                         self.rsf = self.unbam.get_tag("sf") # start frame
                         self.rpw = self.unbam.get_tag("pw") # pulse width
                         self.rseq = self.unbam.seq
+                        self.rsubstart = substart
+                        self.rsubend = subend
                         break
-            if not self.unbam: print "ERROR: unbam not found!!!"
+            if not self.unbam:
+                print "ERROR: unbam not found for %s!!!" % self.zmw
+                return(False)
 
         #### albam
         self.albam = []
@@ -118,9 +153,7 @@ simply tabulate statistics from which the model parameters are set viz
             reader = pbcore.io.openIndexedAlignmentFile( self.albamf, self.reff )
             for h in reader:
                 zmw=h.HoleNumber
-                # TODO: do I really have to parse the subread location from the query_name???
-                (substart, subend) = [int(xx) for xx in self.unbam.query_name.split("/")[-1].split("_")]
-                if zmw == self.zmw and AContainedInB(h.queryStart, h.queryEnd, substart, subend):
+                if zmw == self.zmw and AContainedInB(h.queryStart, h.queryEnd, self.rsubstart, self.rsubend):
                     self.albam.append(h)
                     numerr=(h.nMM + h.nIns + h.nDel)
                     rlen = (h.readEnd-h.readStart)
@@ -139,6 +172,9 @@ simply tabulate statistics from which the model parameters are set viz
                     read = h.read()
                     ref = h.reference()
                     print "albam got hit rlen=%d err=%f tid=%s qid=%s" % (rlen,err,tid,qid)
+            if len(self.albam)==0:
+                print "ERROR: albam not found for %s!!!" % self.unbam.query_name
+                return(False)
 
         #### ref
         if self.reff is not None:
@@ -180,8 +216,8 @@ simply tabulate statistics from which the model parameters are set viz
         index = np.array(range(len(qOffset)))
 
         # map-ping: todo probably not too efficient
-        self.alignReadStart = qs - h.queryStart # subtract off start of subread
-        self.alignReadEnd = qe - h.queryStart # subtract off start of subread
+        self.alignReadStart = qs - self.rsubstart # TODO h.queryStart # subtract off start of subread
+        self.alignReadEnd = qe - self.rsubstart # TODO h.queryStart # subtract off start of subread
         self.alignRefStart = ts
         self.alignRefEnd = te
         self.alignStrand = strand
@@ -222,11 +258,15 @@ simply tabulate statistics from which the model parameters are set viz
         return( self.frameToDMEWindow(self.rsf[basenum]) )
 
     ################################
-    def rawAlignRefReadFromReadSE(self, start, end):
+    def rawAlignRefReadFromReadSE(self, start=None, end=None):
         "raw alignment containing read start to end"
-        als = tl.readToAlign(readStart)[0]
-        ale = tl.readToAlign(readEnd)[0]
-        return( (tl.albam[0].reference()[als:ale ], tl.albam[0].read()[als:ale ]))
+        if start is not None:
+            als = self.readToAlign(start)[0]
+            ale = self.readToAlign(end)[0]
+        else:
+            als = 0
+            ale = len( self.albam[0].reference() )
+        return( (self.albam[0].reference()[als:ale ], self.albam[0].read()[als:ale ]))
 
     ################################
     def subreadDat(self, start, end):
@@ -235,10 +275,11 @@ simply tabulate statistics from which the model parameters are set viz
         result["dat"] = []
         result["doc"] = "readbaseindex startframe pulsewidth refindex alignindex readbase alignrefbases"
         for readindex in range(start,end):
-            resrseq = self.rseq[readindex]
-            #resreadToRef = "".join( [self.ref[xx] if self.alignStrand==1 else self.rMap[self.ref[xx]] for xx in self.readToRef(readindex)])
+            # TODO!!!!!!!!!: I can't get the mapping right to raw read!!!!!! 
+            #resrseq = self.rseq[readindex] # +self.albam[0].aStart]
+            resrseq = "".join( [self.alignRead[xx] for xx in self.readToAlign(readindex)])
+            ##resreadToRef = "".join( [self.ref[xx] if self.alignStrand==1 else self.rMap[self.ref[xx]] for xx in self.readToRef(readindex)])
             resreadToAlign_ref = "".join( [self.alignRef[xx] for xx in self.readToAlign(readindex)])
-            #resreadToAlign_read = "".join( [self.alignRead[xx] for xx in self.readToAlign(readindex)])
             result["dat"].append([ readindex, self.rsf[readindex], self.rpw[readindex], self.readToRef(readindex), self.readToAlign(readindex), resrseq, resreadToAlign_ref ])
         return(result)
         
@@ -313,7 +354,7 @@ simply tabulate statistics from which the model parameters are set viz
             # data across multiple dme frames
             newstart = start
             newend = min(self.dmeEndFrame[firstdmewin], end)
-            print >>sys.stderr, "dmeprobs", start, end, "not in one dme so computing", newstart, newend, "and then", newend, end
+            # print >>sys.stderr, "dmeprobs", start, end, "not in one dme so computing", newstart, newend, "and then", newend, end
             res = []
             for ii in range(newstart,newend):
                 res.append( currentgm.logcompprob( self.trace[0,ii],self.trace[1,ii]))
@@ -323,87 +364,10 @@ simply tabulate statistics from which the model parameters are set viz
             return( res )
                 
     ################################
-    def OLDcomputehmmRAW( self, hmmstates, hmmStateTrans, dme, startframe, endframe ):
-
-        baseIdx = {"-":0,"A":1,"C":2,"G":3,"T":4}
-
-        # fill out simple hmm dp table
-        hmmdp = np.zeros( ( (endframe-startframe), len(hmmstates) ) )-9.9E99 # log(0)
-        hmmdt = np.zeros( ( (endframe-startframe), len(hmmstates) ), dtype=np.int_ ) -1
-        #(1024, 71)
-
-        # start in the first.. todo somewhat arbitrary
-        frame = 0
-        outprob = dme.logcompprob(self.trace[0,frame+startframe], self.trace[1,frame+startframe])
-        hmmdp[0,0] = outprob[baseIdx[hmmstates[0]]]
-
-        # simply fill out table viterbi max
-        for frame in range(1,(endframe-startframe)):
-            outprob = dme.logcompprob(self.trace[0,frame+startframe], self.trace[1,frame+startframe])
-            for st in range(len(hmmstates)):
-                if st>0:
-                    prev = st-1
-                else:
-                    prev = 0
-                ide = hmmstates[st]
-                idprev = hmmstates[prev]
-                probsame = ( hmmdp[frame-1, st]   + math.log(hmmStateTrans[ide+ide])  + outprob[baseIdx[ide]] ) # same state
-                probprev = ( hmmdp[frame-1, prev] + math.log(hmmStateTrans[ide+idprev]) + outprob[baseIdx[ide]] ) # from previous
-                if probsame > probprev:
-                    hmmdp[frame,st] = probsame
-                    hmmdt[frame,st] = st
-                else:
-                    hmmdp[frame,st] = probprev
-                    hmmdt[frame,st] = prev
-
-        # traceback
-        traceback = []
-        tracebackscore = []
-        here = (endframe-startframe)-1
-        best = len(hmmstates)-1 # global must end at the last state
-        # "local" find the best score out of all: best = hmmdp[here,:].argmax(0)
-        prev = hmmdt[here,best]
-        traceback.append(int(best))
-        tracebackscore.append(hmmdp[here,best])
-        while here>0:
-            here -= 1
-            best = prev
-            prev = hmmdt[here,best]
-            traceback.append(int(best))
-            tracebackscore.append(hmmdp[here,best])
-        traceback.reverse()
-        tracebackscore.reverse()
-
-        # print "traceback"
-        # for (k,v) in enumerate(zip(traceback,tracebackscore)):
-        #   print k, v
-
-        ## reduce the traceback to startframe and pw
-        newbasecalls = []
-        sf = startframe
-        currentpos = 0
-        currentbase = hmmstates[currentpos]
-        ii = 0
-        while ii<(endframe-startframe):
-            if traceback[ii] != currentpos:
-                if hmmstates[traceback[ii]] == "-": # if current is "-" then previous is base so store
-                    newbasecalls.append( (currentbase, sf, startframe + ii - sf) ) # base, startframe, pulsewidth
-                sf = startframe+ii
-                currentpos+=1
-                currentbase = hmmstates[currentpos]
-            ii+=1
-        # TODO: is last case handled correcly. need to add below?
-
-        # base, sf, pw
-        # ('G', 49154, 15)
-        # print "newbasecalls"
-        # for kk in newbasecalls:
-        #     print kk
-
-        return( traceback,tracebackscore, newbasecalls )
-
-    ################################
     def computehmm( self, hmmstates, hmmStateTrans, dmeprobs, doGlobal=True, startframe=0 ):
+
+        # dmeprobs are the probs over bases from startframe to endframe computed before coming in: 
+        #  outprob = dme.logcompprob(self.trace[0,frame+startframe], self.trace[1,frame+startframe])
 
         baseIdx = {"-":0,"A":1,"C":2,"G":3,"T":4}
 

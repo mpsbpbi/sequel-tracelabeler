@@ -68,39 +68,43 @@ allqvsHeader = ["A","C","G","T", "IA", "IC","IG","IT","D"]
 allqvsHeaderToIdx = dict([(kk,vv) for (vv,kk) in enumerate(allqvsHeader)])
 allqvs = []
 
-for bb in range(len(tl.rseq)-1):
-    # TODO: doesn't score last base (-1) as I don't know where the "end" is
+for bb in range(1,len(tl.rseq)):
+    ### TODO: insert after: doesn't score last base (-1) as I don't know where the "end" is
+    # TODO: insert before: doesn't score first base (-1) as I don't know where the "begin" is
     thisbase = tl.rseq[bb]
-    trstart = tl.rsf[bb]
-    trend = tl.rsf[bb+1]
+#    trstart = tl.rsf[bb]
+#    trend = tl.rsf[bb+1]
+    # insert before the current base
+    trstart = tl.rsf[bb-1]+tl.rpw[bb-1]
+    trend =   tl.rsf[bb]+tl.rpw[bb]
 
     # the dme cluter probs for the frame pulse data
     gmp = tl.dmeprobs(trstart, trend)
 
     newqvs = []
     #### mm
-    (tr, trsc, bc) = tl.computehmm( ["A","-"], hmmst, gmp )
+    (tr, trsc, bc) = tl.computehmm( ["-","A"], hmmst, gmp )
     newqvs.append(trsc[-1])
-    (tr, trsc, bc) = tl.computehmm( ["C","-"], hmmst, gmp )
+    (tr, trsc, bc) = tl.computehmm( ["-","C"], hmmst, gmp )
     newqvs.append(trsc[-1])
-    (tr, trsc, bc) = tl.computehmm( ["G","-"], hmmst, gmp )
+    (tr, trsc, bc) = tl.computehmm( ["-","G"], hmmst, gmp )
     newqvs.append(trsc[-1])
-    (tr, trsc, bc) = tl.computehmm( ["T","-"], hmmst, gmp )
+    (tr, trsc, bc) = tl.computehmm( ["-","T"], hmmst, gmp )
     newqvs.append(trsc[-1])
 
     #### ins
-    (tr, trsc, bc) = tl.computehmm( [thisbase, "-", "A","-"], hmmst, gmp )
-    newqvs.append(trsc[-1]-math.log(8))
-    (tr, trsc, bc) = tl.computehmm( [thisbase, "-", "C","-"], hmmst, gmp )
-    newqvs.append(trsc[-1]-math.log(8))
-    (tr, trsc, bc) = tl.computehmm( [thisbase, "-", "G","-"], hmmst, gmp )
-    newqvs.append(trsc[-1]-math.log(8))
-    (tr, trsc, bc) = tl.computehmm( [thisbase, "-", "T","-"], hmmst, gmp )
-    newqvs.append(trsc[-1]-math.log(8))
+    (tr, trsc, bc) = tl.computehmm( ["-", "A","-",thisbase], hmmst, gmp )
+    newqvs.append(trsc[-1])
+    (tr, trsc, bc) = tl.computehmm( ["-", "C","-",thisbase], hmmst, gmp )
+    newqvs.append(trsc[-1])
+    (tr, trsc, bc) = tl.computehmm( ["-", "G","-",thisbase], hmmst, gmp )
+    newqvs.append(trsc[-1])
+    (tr, trsc, bc) = tl.computehmm( ["-", "T","-",thisbase], hmmst, gmp )
+    newqvs.append(trsc[-1])
 
     #### del
     (tr, trsc, bc) = tl.computehmm( ["-"], hmmst, gmp )
-    newqvs.append(trsc[-1]-math.log(0.25))
+    newqvs.append(trsc[-1])
 
     allqvs.append(newqvs)
 

@@ -45,12 +45,14 @@ windowMin = tl.readBaseToWindowStartFrame(tl.alignReadStart)
 windowMax = tl.readBaseToWindowStartFrame(tl.alignReadEnd-1)
 print "windowMin/max", windowMin, windowMax
 
+
+thiswindow = tl.readBaseToWindowStartFrame(int(options.targetBase))+framewindow
+
 # check to make sure the given framewindow makes sense
-if framewindow>(windowMax-windowMin):
-    print "framewindow too big:", framewindow, ">" , (windowMax-windowMin)
+if thiswindow>(windowMax):
+    print "framewindow too big:", thiswindow, ">" , windowMax
     sys.exit(1)
 
-thiswindow = windowMin + framewindow
 (startframe, endframe) = tl.dmeWindowToStartEndFrame(thiswindow)
 
 # For the frames in this window what are the start/end reads?
@@ -59,6 +61,20 @@ thiswindow = windowMin + framewindow
 readStart = max(readStart, tl.alignReadStart)
 readEnd = min(readEnd, tl.alignReadEnd-1)
 print "read start end", readStart, readEnd, "framewindow=", startframe, endframe
+
+print "rawalign"
+ra= tl.rawAlignRefReadFromReadSE( readStart,readEnd )
+print ra
+alignread = ra[1].replace("-","")
+alignref = ra[0].replace("-","")
+subread = tl.rseq[readStart:readEnd]
+myfread = tl.rseq.find(alignread)
+myfref = tl.rseq.find(alignref)
+print "alignread, subread, myfread, alignref,myfref", alignread, subread, myfread, alignref,myfref
+ra= tl.rawAlignRefReadFromReadSE( )
+#print "rseq", tl.rseq
+#print "aref", ra[0].replace("-","")
+#print "aread", ra[1].replace("-","")
 
 # now for read bases in consideration collect startframe pulsewidth base and alignment
 windowdat = tl.subreadDat(readStart,readEnd)
