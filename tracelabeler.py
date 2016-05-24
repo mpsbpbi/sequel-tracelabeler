@@ -332,7 +332,7 @@ simply tabulate statistics from which the model parameters are set viz
             newend = min(self.dmeEndFrame[firstdmewin], end)
             print >>sys.stderr, "tracesub", start, end, "not in one dme so computing", newstart, newend, "and then", newend, end
             dat = (self.trace[:,newstart:newend].transpose() - currentdmedat["BaselineMean"]).transpose()
-            # recurse
+            # recurse TODO remove recursion
             return(np.hstack((dat, self.tracebasesub(newend, end))))
 
     ################################
@@ -358,7 +358,7 @@ simply tabulate statistics from which the model parameters are set viz
             res = []
             for ii in range(newstart,newend):
                 res.append( currentgm.logcompprob( self.trace[0,ii],self.trace[1,ii]))
-            # recurse
+            # recurse: TODO remove recursion
             rest = self.dmeprobs(newend, end)
             res.extend(rest)
             return( res )
@@ -449,6 +449,103 @@ simply tabulate statistics from which the model parameters are set viz
         # end case
         if hmmstates[currentpos] != "-":
             newbasecalls.append( [currentbase, sf, startframe + ii - sf] ) # base, startframe, pulsewidth
+
+        # base, sf, pw
+        # ('G', 49154, 15)
+        # print "newbasecalls"
+        # for kk in newbasecalls:
+        #     print kk
+
+        return( traceback,tracebackscore, newbasecalls )
+
+    ################################
+    def computehmmfullconnect( self, hmmstates, hmmStateTrans, dmeprobs, startframe=0 ):
+
+        def sortindex(seq):
+            return [x for x,y in sorted(enumerate(seq), key = lambda x: -x[1])]
+
+        # dmeprobs are the probs over bases from startframe to endframe computed before coming in: 
+        #  outprob = dme.logcompprob(self.trace[0,frame+startframe], self.trace[1,frame+startframe])
+
+        baseIdx = {"-":0,"A":1,"C":2,"G":3,"T":4, "=":0,"B":1,"D":2,"H":3,"U":4}
+
+        # fill out simple hmm dp table
+        hmmdp = np.zeros( ( len(dmeprobs), len(hmmstates) ) )-9.9E99 # log(0)
+        hmmdt = np.zeros( ( len(dmeprobs), len(hmmstates) ), dtype=np.int_ ) -1
+        #(1024, 71)
+
+        # start 0th frame in each of the states
+        for st in range(len(hmmstates)):
+            hmmdp[0,st] = dmeprobs[0][baseIdx[hmmstates[st]]]
+            hmmdt[0,st] = st
+
+        # simply fill out table viterbi max with len(hmmstates) (5) possibilities
+        for frame in range(1,len(dmeprobs)):
+            outprob = dmeprobs[frame]
+
+            for st in range(len(hmmstates)):
+                allprobs =[0]*len(hmmstates)
+                ide = hmmstates[st]
+
+                for prevst in range(len(hmmstates)):
+                    idprev = hmmstates[prevst]
+                    if ide+idprev not in hmmStateTrans:
+                        allprobs[prevst] = -9.99E999
+                    else:
+                        allprobs[prevst] = hmmdp[frame-1, prevst] + (hmmStateTrans[ide+idprev]) + outprob[baseIdx[hmmstates[st]]]
+
+                # find max
+                si = sortindex(allprobs)
+                hmmdp[frame,st] = allprobs[si[0]]
+                hmmdt[frame,st] = si[0]
+
+        # traceback
+        traceback = []
+        tracebackscore = []
+        here = len(dmeprobs)-1
+        # find the best score out of all
+        best = hmmdp[here,:].argmax(0)
+
+        prev = hmmdt[here,best]
+        traceback.append(int(best))
+        tracebackscore.append(hmmdp[here,best])
+        while here>0:
+            here -= 1
+            best = prev
+            prev = hmmdt[here,best]
+            traceback.append(int(best))
+            tracebackscore.append(hmmdp[here,best])
+        traceback.reverse()
+        tracebackscore.reverse()
+
+        #### dump the data
+        if False:
+            np.savetxt("computehmmfullconnect.gmp.numpy", dmeprobs)
+            np.savetxt("computehmmfullconnect.hmmdp.numpy", hmmdp)
+            np.savetxt("computehmmfullconnect.hmmdt.numpy", hmmdt)
+            ofp = open("computehmmfullconnect.traceback","w")
+            for (k,v) in enumerate(zip(traceback,tracebackscore)):
+                print >>ofp, k, v[0], v[1]
+            ofp.close()
+
+        ## reduce the traceback to startframe and pw
+        newbasecalls = []
+        sf = startframe
+        currentpos = traceback[0]
+        currentscore=  tracebackscore[0]
+        currentbase = hmmstates[currentpos]
+        ii = 0
+        while ii<len(dmeprobs):
+            if traceback[ii] != currentpos:
+                newbasecalls.append( [currentbase, sf, startframe + ii - sf, currentscore] ) # base, startframe, pulsewidth, score
+                sf = startframe+ii
+                currentpos = traceback[ii]
+                currentscore = tracebackscore[ii]
+                currentbase = hmmstates[currentpos]
+            ii+=1
+        # end case
+        newbasecalls.append( [currentbase, sf, startframe + ii - sf, currentscore] ) # base, startframe, pulsewidth, score
+
 
         # base, sf, pw
         # ('G', 49154, 15)

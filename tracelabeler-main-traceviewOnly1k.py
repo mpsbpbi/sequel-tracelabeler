@@ -10,6 +10,7 @@ parser = OptionParser("tracelabeler-windowTraceview")
 parser.add_option("--trace", type="string", dest="trace")
 parser.add_option("--zmw")
 parser.add_option("--outputprefix")
+parser.add_option("--targetFrame")
 (options, args) = parser.parse_args()
 if not options.trace:
     parser.print_help()
@@ -17,13 +18,17 @@ if not options.trace:
 
 outprefix = options.outputprefix
 
-
 tl = tracelabeler.tracelabeler( trace=options.trace )
 
 # set the zmw and targetbase to get data
 tl.setzmw(int(options.zmw))
 
-(startframe, endframe) = (0,1024)
+if options.targetFrame is None:
+    startframe = 0
+else:
+    startframe = int(options.targetFrame)
+
+endframe = startframe+1024
 
 #### Now traceview it to make sure everything lines up.
 
